@@ -1,0 +1,570 @@
+---
+title: "Pattern Matching with Regular Expression"
+output: html_notebook
+---
+Matching the start or end of the string
+rebus provides START and END shortcuts to specify regular expressions that match the start and end of the string. These are also known as anchors. You can try it out just by typing
+
+START
+You'll see the output <regex> ^. The <regex> denotes this is a special regex object and it has the value ^. ^ is the character used in the regular expression language to denote the start of a string.
+
+The special operator provided by rebus, %R% allows you to compose complicated regular expressions from simple pieces. When you are reading rebus code, think of %R% as "then". For example, you could combine START with c,
+
+START %R% "c"
+to match the pattern "the start of string then a c", or in other words: strings that start with c. In rebus, if you want to match a specific character, or a specific sequence of characters, you simply specify them as a string, e.g. surround them with ".
+
+```{r}
+library(rebus)
+library(stringr)
+
+# Some strings to practice with
+x <- c("cat", "coat", "scotland", "tic toc")
+
+# Print END
+END
+
+# Run me
+str_view(x, pattern = START %R% "c")
+
+# Match the strings that start with "co" 
+str_view(x, pattern = START %R% "co")
+
+# Match the strings that end with "at"
+str_view(x, pattern = "at" %R% END)
+
+# Match the strings that is exactly "cat"
+str_view(x, pattern = START %R% "cat" %R% END)
+```
+
+Matching any character
+In a regular expression you can use a wildcard to match a single character, no matter what the character is. In rebus it is specified with ANY_CHAR. Try typing ANY_CHAR in the console. You should see that in the regular expression language this is specified by a dot, ..
+
+For example, "c" %R% ANY_CHAR %R% "t" will look for patterns like "c_t" where the blank can be any character. Consider the strings: "cat", "coat", "scotland" and "tic toc". Where would the matches to "c" %R% ANY_CHAR %R% "t" be?
+
+Test your intuition by running:
+
+str_view(c("cat", "coat", "scotland", "tic toc"), 
+  pattern = "c" %R% ANY_CHAR %R% "t")
+Notice that ANY_CHAR will match a space character (c t in tic toc). It will also match numbers or punctuation symbols, but ANY_CHAR will only ever match one character, which is why we get no match in coat.
+
+```{r}
+x <- c("cat", "coat", "scotland", "tic toc")
+
+# Match any character followed by a "t"
+str_view(x, pattern = ANY_CHAR %R% "t")
+
+# Match a "t" followed by any character
+str_view(x, pattern = "t" %R% ANY_CHAR)
+
+# Match two characters
+str_view(x, pattern = ANY_CHAR %R% ANY_CHAR)
+
+# Match a string with exactly three characters
+str_view(x, pattern = START %R% ANY_CHAR %R% ANY_CHAR %R% ANY_CHAR %R% END)
+```
+
+Combining with stringr functions
+You can pass a regular expression as the pattern argument to any stringr function that has the pattern argument. You can use str_detect() to get a logical vector for whether there was a match, str_subset() to return just the strings with matches, and str_count() to count the number of matches in each string.
+
+As a reminder, compare the output of those three functions with our "c_t" pattern from the previous exercise:
+
+x <- c("cat", "coat", "scotland", "tic toc")
+pattern <- "c" %R% ANY_CHAR %R% "t"
+str_detect(x, pattern)
+str_subset(x, pattern)
+str_count(x, pattern)
+It now also makes sense to add str_extract() to your repertoire. It returns just the part of the string that matched the pattern:
+
+str_extract(x, pattern)
+You'll combine your regular expression skills with stringr to ask how often a q is followed by a u in boy names.
+
+```{r}
+library(babynames)
+library(dplyr)
+# Extracting vectors for boys' names
+babynames_2014 <- filter(babynames, year == 2014)
+boy_names = filter(babynames_2014, sex == "M")$name
+# q followed by any character
+pattern <- "q" %R% ANY_CHAR
+
+# Test pattern 
+str_view(c("Quentin", "Kaliq", "Jacques",  "Jacqes"), pattern)  
+
+# Find names that have the pattern
+names_with_q <- str_subset(boy_names, pattern = pattern)
+length(names_with_q)
+
+# Find part of name that matches pattern
+part_with_q <- str_extract(boy_names, pattern = pattern)
+table(part_with_q)
+
+# Did any names have the pattern more than once?
+count_of_q <- (str_count(boy_names, pattern = pattern))
+table(count_of_q)
+# Which babies got these names?
+with_q <- str_detect(boy_names, pattern = pattern)
+
+# What fraction of babies got these names?
+mean(with_q)
+```
+
+Alternation
+The rebus function or() allows us to specify a set of alternatives, which may be single characters or character strings, to be matched. Each alternative is passed as a separate argument.
+
+For example, or("grey", "gray") allows us to detect either the American or British spelling:
+
+x <- c("grey sky", "gray elephant")
+str_view(x, pattern = or("grey", "gray"))
+Since these two words only differ by one character you could equivalently specify this match with "gr" %R% or("e", "a") %R% "y", that is "a gr followed by, an e or an a, then a y".
+
+```{r}
+girl_names <- filter(babynames_2014, sex == "F")$name
+
+# Match Jeffrey or Geoffrey
+whole_names <- or("Jeffrey", "Geoffrey")
+str_view(boy_names, pattern = whole_names, 
+  match = TRUE)
+
+# Match Jeffrey or Geoffrey, another way
+common_ending <- or("Je","Geo") %R% "ffrey"
+str_view(boy_names, pattern = common_ending, 
+  match = TRUE)
+
+# Match with alternate endings
+by_parts <- or("Je", "Geo") %R% "ff" %R% or("ry", "ery", "rey", "erey")
+str_view(boy_names, 
+  pattern = by_parts, 
+  match = TRUE)
+
+# Match names that start with Cath or Kath
+ckath <- or("C", "K") %R% "ath"
+str_view(girl_names, pattern = ckath, match = TRUE)
+
+```
+
+Character classes
+In regular expressions a character class is a way of specifying "match one (and only one) of the following characters". In rebus you can specify the set of allowable characters using the function char_class().
+
+This is another way you could specify an alternate spelling, for example, specifying "a gr followed by, either an a or e, followed by a y":
+
+x <- c("grey sky", "gray elephant")
+str_view(x, pattern = "gr" %R% char_class("ae") %R% "y")
+A negated character class matches "any single character that isn't one of the following", and in rebus is specified with negated_char_class().
+
+Unlike in other places in a regular expression you don't need to escape characters that might otherwise have a special meaning inside character classes. If you want to match . you can include . directly, e.g. char_class("."). Matching a - is a bit trickier. If you need to do it, just make sure it comes first in the character class.
+
+```{r}
+x <- c("grey sky", "gray elephant")
+# Create character class containing vowels
+vowels <- char_class("a", "e", "i", "o", "u", "A", "E", "I", "O", "U")
+
+# Print vowels
+vowels
+
+# See vowels in x with str_view()
+str_view(x, pattern = vowels)
+
+# See vowels in x with str_view_all()
+str_view_all(x, pattern = vowels)
+
+# Number of vowels in boy_names
+num_vowels <- str_count(boy_names, pattern = vowels)
+mean(num_vowels)
+
+# Proportion of vowels in boy_names
+name_length <- str_length(boy_names)
+mean(num_vowels/name_length)
+```
+
+Repetition
+The rebus functions one_or_more(), zero_or_more() and optional() can be used to wrap parts of a regular expression to allow a pattern to match a variable number of times.
+
+Take our vowels pattern from the last exercise. You can pass it to one_or_more() to create the pattern that matches "one or more vowels". Take a look with these interjections:
+
+x <- c("ow", "ooh", "yeeeah!", "shh")
+str_view(x, pattern = one_or_more(vowels))
+You'll see we can match the single o in ow, the double o in ooh and the string of es followed by the a in yeeeah, but nothing in shh because there isn't a single vowel.
+
+In contrast zero_or_more() will match even if there isn't an occurrence, try
+
+str_view(x, pattern = zero_or_more(vowels))
+Since both yeeeah and shh start without a vowel, they match "zero vowels", and since regular expressions are lazy, they look no further and return the start of the string as a match.
+
+```{r}
+# Vowels from last exercise
+vowels <- char_class("aeiouAEIOU")
+
+# Use `negated_char_class()` for everything but vowels
+not_vowels <- negated_char_class("aeiouAEIOU")
+
+# See names with only vowels
+str_view(boy_names, 
+  pattern = exactly(one_or_more(vowels)), 
+  match = TRUE)
+
+# See names with no vowels
+str_view(boy_names, 
+  pattern = exactly(one_or_more(not_vowels)), 
+  match = TRUE)
+```
+
+Hunting for phone numbers
+For your first task you are going to pull out the phone numbers from this vector of contact information:
+
+contact
+You'll assume the phone numbers you are looking for follow the American standard of a three digit area code, a three digit exchange and then a four digit number, but each part could be separated by spaces or various punctuation symbols.
+
+```{r}
+contact <- c("Call me at 555-555-0191", "123 Main St", "(555) 555 0191",  "Phone: 555.555.0191 Mobile: 555.555.0192")
+# Take a look at ALL digits
+str_view_all(contact, DGT)
+
+# Create a three digit pattern and test
+three_digits <- DGT %R% DGT %R% DGT
+str_view_all(contact,
+  pattern = three_digits)
+
+# Create four digit pattern
+four_digits <- three_digits %R% DGT
+
+# Create a separator pattern and test
+separator <- char_class("-.() ")
+str_view_all(contact,
+  pattern = separator)
+
+# Create phone pattern
+phone_pattern <- optional(OPEN_PAREN) %R% 
+  three_digits %R% 
+  zero_or_more(separator) %R% 
+  three_digits %R% 
+  zero_or_more(separator) %R%
+  four_digits
+        
+# Test pattern           
+str_view(contact, pattern = phone_pattern)
+
+# Extract phone numbers
+str_extract(contact, phone_pattern)
+
+# Extract ALL phone numbers
+str_extract_all(contact, phone_pattern)
+```
+
+Extracting age and gender from accident narratives
+Recall from the video, you want to parse out age and gender from accident narratives. For example, this narrative
+
+19YOM-SHOULDER STRAIN-WAS TACKLED WHILE PLAYING FOOTBALL W/ FRIENDS 
+describes male of age 19, and this one
+
+TRIPPED OVER CAT AND LANDED ON HARDWOOD FLOOR. LACERATION ELBOW, LEFT. 33 YOF*
+a female of age 33.
+
+You are generally looking for a pattern with a number, something to indicate the units, e.g. YO or YR for years old, or MO for months old, and a character that identifies the gender.
+
+In this exercise you'll build up a pattern to pull out the part of the narrative that has the age and gender information. Then, in the next exercise you'll parse out the age and gender into separate variables.
+
+```{r}
+narratives <- c("19YOM-SHOULDER STRAIN-WAS TACKLED WHILE PLAYING FOOTBALL W/ FRIENDS ", "31 YOF FELL FROM TOILET HITITNG HEAD SUSTAINING A CHI ",  "ANKLE STR. 82 YOM STRAINED ANKLE GETTING OUT OF BED ", "TRIPPED OVER CAT AND LANDED ON HARDWOOD FLOOR. LACERATION ELBOW, LEFT. 33 YOF*", "10YOM CUT THUMB ON METAL TRASH CAN DX AVULSION OF SKIN OF THUMB ", "53 YO F TRIPPED ON CARPET AT HOME. DX HIP CONTUSION ", "13 MOF TRYING TO STAND UP HOLDING ONTO BED FELL AND HIT FOREHEAD ON RADIATOR DX LACERATION", "14YR M PLAYING FOOTBALL; DX KNEE SPRAIN ", "55YOM RIDER OF A BICYCLE AND FELL OFF SUSTAINED A CONTUSION TO KNEE ", "5 YOM ROLLING ON FLOOR DOING A SOMERSAULT AND SUSTAINED A CERVICAL STRA IN")
+
+# Look for two digits
+str_view(narratives, DGT %R% DGT)
+
+# Pattern to match one or two digits
+age <- optional(DGT) %R% DGT
+str_view(narratives, 
+  pattern = age)
+
+# Pattern to match units 
+unit <- optional(SPC) %R% or("YO", "YR", "MO")
+
+# Test pattern with age then units
+str_view(narratives, 
+  pattern = age %R% unit)
+
+# Pattern to match gender
+gender <- optional(SPC) %R% or("M", "F")
+
+# Test pattern with age then units then gender
+str_view(narratives, 
+  pattern = age %R% unit %R% gender)
+
+# Extract age_gender, take a look
+age_gender <- str_extract(narratives,  age %R% unit %R% gender)
+age_gender
+
+```
+
+Parsing age and gender into pieces
+To finish up, you need to pull out the individual pieces and tidy them into usable variables.
+
+There are a few ways you could get at one piece: you could extract out the piece you need, you could replace everything that isn't the piece you need with "", or you could try to split into the pieces you need. You'll try a few of these in this exercise and you'll see yet another way in the next chapter.
+
+One benefit of building up your pattern in pieces is you already have patterns for each part that you can reuse now.
+
+```{r}
+# age_gender, age, gender, unit are pre-defined
+ls.str()
+
+# Extract age and make numeric
+ages_numeric <- as.numeric(str_extract(age_gender, pattern = age))
+
+# Replace age and units with ""
+genders <- str_replace(age_gender, 
+  pattern = age %R% unit, 
+  replacement = "")
+
+# Replace extra spaces
+genders_clean <- str_replace_all(genders, 
+  pattern = optional(SPC), 
+  replacement = "")
+
+# Extract units 
+time_units <- str_extract(age_gender, pattern = unit)
+
+# Extract first word character
+time_units_clean <- str_extract(time_units, pattern = WRD)
+
+# Turn ages in months to years
+ages_years <- ifelse(time_units_clean == "Y", ages_numeric, ages_numeric/12)
+```
+
+Capturing parts of a pattern
+In rebus, to denote a part of a regular expression you want to capture, you surround it with the function capture(). For example, a simple pattern to match an email address might be,
+
+email <- one_or_more(WRD) %R% 
+  "@" %R% one_or_more(WRD) %R% 
+  DOT %R% one_or_more(WRD)
+str_view("(wolverine@xmen.com)", pattern = email)  
+If you want to capture the part before the @, you simply wrap that part of the regular expression in capture():
+
+email <- capture(one_or_more(WRD)) %R% 
+  "@" %R% one_or_more(WRD) %R% 
+  DOT %R% one_or_more(WRD)
+str_view("(wolverine@xmen.com)", pattern = email)  
+The part of the string that matches hasn't changed, but if we pull out the match with str_match() we get access to the captured piece:
+
+str_match("(wolverine@xmen.com)", pattern =  email)  
+You'll explore this behavior with some more super hero email addresses.
+
+```{r}
+hero_contacts <- c("(wolverine@xmen.com)", "wonderwoman@justiceleague.org", "thor@avengers.com")
+# Capture part between @ and . and after .
+email <- capture(one_or_more(WRD)) %R% 
+  "@" %R% capture(one_or_more(WRD)) %R% 
+  DOT %R% capture(one_or_more(WRD))
+
+# Check match hasn't changed
+str_view(hero_contacts, pattern = email)
+
+# Pull out match and captures
+email_parts <- str_match(hero_contacts, pattern = email)
+
+# Print email_parts
+email_parts
+
+# Save host
+host <- email_parts[,3]
+host
+```
+
+Pulling out parts of a phone number
+You can now go back to the phone number example from the previous chapter. You developed a pattern to extract the parts of string that looked like phone numbers, and now you have the skills to pull out the pieces of the number. Let's see if you can put your skills together to output the first phone number in each string in a common format.
+
+```{r}
+# View text containing phone numbers
+contact
+
+# Add capture() to get digit parts
+phone_pattern <- capture(three_digits) %R% zero_or_more(separator) %R% 
+           capture(three_digits) %R% zero_or_more(separator) %R%
+           capture(four_digits)
+           
+# Pull out the parts with str_match()
+phone_numbers <- str_match(contact, pattern = phone_pattern)
+
+# Put them back together
+str_c(
+  "(",
+  phone_numbers[,2],
+  ")",
+  phone_numbers[,3],
+  "-",
+  phone_numbers[,4])
+```
+
+Extracting age and gender again
+You can now also take another look at your pattern for pulling out age and gender from the injury narratives. In the last chapter you took two steps to extract the pattern and then pull it apart. Take a go at doing it in one step!
+
+```{r}
+# narratives has been pre-defined
+narratives
+
+# Add capture() to get age, unit and sex
+pattern <- capture(optional(DGT) %R% DGT) %R%  
+  optional(SPC) %R% capture(or("YO", "YR", "MO")) %R%
+  optional(SPC) %R% capture(or("M", "F"))
+
+# Pull out from narratives
+str_match(narratives, pattern)
+
+# Edit to capture just Y and M in units
+pattern2 <- capture(optional(DGT) %R% DGT) %R%  
+  optional(SPC) %R% capture(or("Y", "M")) %R% optional(or("O","R")) %R%
+  optional(SPC) %R% capture(or("M", "F"))
+
+# Check pattern
+str_view(narratives, pattern2)
+
+# Pull out pieces
+str_match(narratives, pattern2)
+```
+
+```{r}
+# See names with three repeated letters
+repeated_three_times <- capture(LOWER) %R% REF1 %R% REF1
+str_view(boy_names, 
+  pattern = repeated_three_times, 
+  match = TRUE)
+
+# See names with a pair of repeated letters
+pair_of_repeated <- capture(LOWER %R% LOWER) %R% REF1
+str_view(boy_names, 
+  pattern = pair_of_repeated, 
+  match = TRUE)
+
+# See names with a pair that reverses
+pair_that_reverses <- capture(LOWER) %R% capture(LOWER) %R% REF2 %R% REF1
+str_view(boy_names, 
+  pattern = pair_that_reverses, 
+  match = TRUE)
+
+# See four letter palindrome names
+four_letter_palindrome <- exactly(capture(LOWER) %R% capture(LOWER) %R% 
+      REF2 %R% REF1)
+str_view(boy_names, 
+  pattern = four_letter_palindrome, 
+  match = TRUE)
+
+# See six letter palindrome names
+six_letter_palindrome <- exactly(
+    capture(LOWER) %R% capture(LOWER) %R% capture(LOWER) %R% 
+      REF3 %R% REF2 %R% REF1)
+str_view(boy_names, 
+  pattern = six_letter_palindrome, 
+  match = TRUE)
+```
+
+Replacing with regular expressions
+Now, you've mastered matching with backreferences, you'll build up to replacing with backreferences, but first let's review str_replace() now that you've got regular expressions under your belt.
+
+Remember str_replace() takes three arguments, string a vector of strings to do the replacements in, pattern that identifies the parts of strings to replace and replacement the thing to use as a replacement.
+
+replacement can be a vector, the same length as string, each element specifies the replacement to be used in each string. Let's practice by anonymizing some of the contact objects you've seen so far.
+
+```{r}
+# View text containing phone numbers
+contact
+
+# Replace digits with "X"
+str_replace(contact, DGT, "X")
+
+# Replace all digits with "X"
+str_replace_all(contact, DGT, "X")
+
+# Replace all digits with different symbol
+str_replace_all(contact, DGT, c("X", ".", "*", "_"))
+```
+
+Replacing with backreferences
+The replacement argument to str_replace() can also include backreferences. This works just like specifying patterns with backreferences, except the capture happens in the pattern argument, and the backreference is used in the replacement argument.
+
+x <- c("hello", "sweet", "kitten")
+str_replace(x, capture(ANY_CHAR), str_c(REF1, REF1))
+capture(ANY_CHAR) will match the first character no matter what it is. Then the replacement str_c(REF1, REF1) combines the captured character with itself, in effect doubling the first letter of each string.
+
+You are going to use this to create some alternative, more lively accident narratives.
+
+The strategy you'll take is to match words ending in "ING" then replace them with an adverb followed by the original word.
+
+```{r}
+adverbs = readRDS("adverbs.rds")
+adverbs
+
+# Build pattern to match words ending in "ING"
+pattern <- one_or_more(WRD) %R% "ING"
+str_view(narratives, pattern)
+
+# Test replacement
+str_replace(narratives, capture(pattern), str_c("CARELESSLY", REF1, sep = " "))
+
+# One adverb per narrative
+adverbs_10 <- sample(adverbs, 10)
+
+# Replace "***ing" with "adverb ***ing"
+str_replace(narratives, capture(pattern), str_c(adverbs_10, REF1, sep = " "))
+```
+
+Matching a specific code point or code groups
+Things can get tricky when some characters can be specified two ways, for example ??, an e with a grave accent, can be specified either with the single code point \u00e8 or the combination of a \u0065 and a combining grave accent \u0300. They look the same:
+
+x <- c("\u00e8", "\u0065\u0300")
+writeLines(x)
+But, specifying the single code point only matches that version:
+
+str_view(x, "\u00e8")
+The stringi package that stringr is built on contains functions for converting between the two forms. stri_trans_nfc() composes characters with combining accents into a single character. stri_trans_nfd() decomposes character with accents into separate letter and accent characters. You can see how the characters differ by looking at the hexadecimal codes.
+
+as.hexmode(utf8ToInt(stri_trans_nfd("\u00e8")))
+as.hexmode(utf8ToInt(stri_trans_nfc("\u0065\u0300")))
+In Unicode, an accent is known as a diacritic Unicode Property, and you can match it using the rebus value UP_DIACRITIC.
+
+Vietnamese makes heavy use of diacritics to denote the tones in its words. In this exercise, you'll manipulate the diacritics in the names of Vietnamese rulers.
+
+```{r}
+library(stringi)
+# Names with builtin accents
+(tay_son_builtin <- c(
+  "Nguy\u1ec5n Nh\u1ea1c", 
+  "Nguy\u1ec5n Hu\u1ec7",
+  "Nguy\u1ec5n Quang To\u1ea3n"
+))
+
+# Convert to separate accents
+tay_son_separate <- stri_trans_nfd(tay_son_builtin)
+
+# Verify that the string prints the same
+tay_son_separate
+
+# Match all accents
+str_view_all(tay_son_separate, pattern = UP_DIACRITIC)
+```
+
+Matching a single grapheme
+A related problem is matching a single character. You've used ANY_CHAR to do this up until now, but it will only match a character represented by a single code point. Take these three names:
+
+x <- c("Adele", "Ad\u00e8le", "Ad\u0065\u0300le")
+writeLines(x)
+They look the similar, but this regular expression only matches two of them:
+
+str_view(x, "Ad" %R% ANY_CHAR %R% "le")
+because in the third name ?? is represented by two code points. The unicode standard has a concept of a grapheme that represents a display character, but may be composed of many code points. To match any grapheme you can use GRAPHEME.
+
+str_view(x, "Ad" %R% GRAPHEME %R% "le")
+
+```{r}
+# tay_son_separate has been pre-defined
+tay_son_separate
+
+# View all the characters in tay_son_separate
+str_view_all(tay_son_separate, pattern = ANY_CHAR)
+
+# View all the graphemes in tay_son_separate
+str_view_all(tay_son_separate, pattern = GRAPHEME)
+
+# Combine the diacritics with their letters
+tay_son_builtin <- stri_trans_nfc(tay_son_separate)
+
+# View all the graphemes in tay_son_builtin
+str_view_all(tay_son_builtin, patter = GRAPHEME)
+```
+

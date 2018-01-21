@@ -1,0 +1,221 @@
+---
+title: "Case Studies"
+output: html_notebook
+---
+Getting the play into R
+We've already downloaded the play and put the text file in your workspace. Your first step is to read the play into R using stri_read_lines().
+
+You should take a look at the original text file: importance-of-being-earnest.txt
+
+You'll see there is some foreword and afterword text that Project Gutenberg has added. You'll want to remove that, and then split the play into the introduction (the list of characters, scenes, etc.) and the main body.
+
+```{r}
+library(stringi)
+library(stringr)
+
+# Read play in using stri_read_lines()
+earnest <- stri_read_lines("importance-of-being-earnest.txt")
+
+# Detect start and end lines
+start <- which(str_detect(earnest, fixed("START OF THE PROJECT")))
+end <- which(str_detect(earnest, fixed("END OF THE PROJECT")))
+
+# Get rid of gutenberg intro text
+earnest_sub  <- earnest[(start + 1):(end - 1)]
+
+# Detect first act
+lines_start <- which(str_detect(earnest_sub, fixed("FIRST ACT")))
+
+# Set up index
+intro_line_index <- 1:(lines_start - 1)
+
+# Split play into intro and play
+intro_text <- earnest_sub[intro_line_index]
+play_text <- earnest_sub[-intro_line_index]
+
+# Take a look at the first 20 lines
+writeLines(play_text[1:20])
+```
+
+Identifying the lines, take 1
+The first thing you might notice when you look at your vector play_text is there are lots of empty lines. They don't really affect your task so you might want to remove them. The easiest way to find empty strings is to use the stringi function stri_isempty(), which returns a logical you can use to subset the not-empty strings:
+
+# Get rid of empty strings
+empty <- stri_isempty(play_text)
+play_lines <- play_text[!empty]
+So, how are you going to find the elements that indicate a character starts their line? Consider the following lines
+
+> play_lines[10:15]
+[1] "Algernon.  I'm sorry for that, for your sake.  I don't play"             
+[2] "accurately--any one can play accurately--but I play with wonderful"      
+[3] "expression.  As far as the piano is concerned, sentiment is my forte.  I"
+[4] "keep science for Life."                                                  
+[5] "Lane.  Yes, sir."                                                        
+[6] "Algernon.  And, speaking of the science of Life, have you got the"
+The first line is for Algernon, the next three strings are continuations of that line, then line 5 is for Lane and line 6 for Algernon.
+
+How about looking for lines that start with a word followed by a .?
+
+```{r}
+# Get rid of empty strings
+empty <- stri_isempty(play_text)
+play_lines <- play_text[!empty]
+
+# Pattern for start word then .
+pattern_1 <- START %R% one_or_more(WRD) %R% DOT
+
+# Test pattern_2
+str_view(play_lines, pattern_1, match = TRUE) 
+str_view(play_lines, pattern_1, match = FALSE)
+
+# Pattern for start, capital, word then .
+pattern_2 <- START %R% ascii_upper() %R% one_or_more(WRD) %R% DOT
+
+# View matches of pattern_2
+str_view(play_lines, pattern_2, match = TRUE)
+
+# View non-matches of pattern_2
+str_view(play_lines, pattern_2, match = FALSE)
+
+# Get subset of lines that match
+lines <- str_subset(play_lines, pattern_2)
+
+# Extract match from lines
+who <- str_extract(lines, pattern_2)
+
+# Let's see what we have
+unique(who)
+```
+
+Identifying the lines, take 2
+The pattern "starts with a capital letter, has some other characters then a full stop" wasn't specific enough. You ended up matching lines that started with things like University., July., London., and you missed characters like Lady Bracknell and Miss Prism.
+
+Let's take a different approach. You know the characters names from the play introduction. So, try specifically looking for lines that start with their names. You'll find the or1() function from the rebus package helpful. It specifies alternatives but rather than each alternative being an argument like in or(), you can pass in a vector of alternatives.
+
+```{r}
+# Create vector of characters
+characters <- c("Algernon", "Jack", "Lane", "Cecily", "Gwendolen", "Chasuble", 
+  "Merriman", "Lady Bracknell", "Miss Prism")
+
+# Match start, then character names then .
+pattern_3 <- START %R% or1(characters) %R% DOT
+
+# View matches of pattern_3
+str_view(play_lines, pattern_3, match = TRUE) 
+
+# View non-matches of pattern_3
+str_view(play_lines, pattern_3, match = FALSE)
+
+# Pull out matches
+lines <- str_subset(play_lines, pattern_3)
+
+# Extract match from lines
+who <- str_extract(lines, pattern_3)
+
+# Let's see what we have
+unique(who)
+
+# Count lines per character
+table(who)
+```
+
+Changing case to ease matching
+A simple solution to working with strings in mixed case, is to simply transform them into all lower or all upper case. Depending on your choice, you can then specify your pattern in the same case.
+
+For example, while looking for "cat" finds no matches in the following string,
+
+x <- c("Cat", "CAT", "cAt") 
+str_view(x, "cat")
+transforming the string to lower case first ensures all variations match.
+
+str_view(str_to_lower(x), "cat")
+See if you can find the catcidents that also involved dogs. You'll see a new rebus function called whole_word(). The argument to whole_word() will only match if it occurs as a word on it's own, for example whole_word("cat") will match cat in "The cat " and "cat." but not in "caterpillar".
+
+```{r}
+catcidents = readRDS("catcidents.rds")
+# catcidents has been pre-defined
+head(catcidents)
+
+# Construct pattern of DOG in boundaries
+whole_dog_pattern <- whole_word("DOG")
+
+# See matches to word DOG
+str_view(catcidents, pattern = whole_dog_pattern,
+  match = TRUE)
+
+# Transform catcidents to upper case
+catcidents_upper <- str_to_upper(catcidents)
+str_view(catcidents_upper, pattern = whole_dog_pattern,
+  match = TRUE)
+
+# Which strings match?
+has_dog <- str_detect(catcidents_upper, 
+  pattern = whole_dog_pattern)
+
+# Pull out matching strings in original 
+catcidents[has_dog]
+```
+
+Ignoring case when matching
+Rather than transforming the input strings, another approach is to specify that the matching should be case insensitive. This is one of the options to the stringr regex() function.
+
+Take our previous example,
+
+x <- c("Cat", "CAT", "cAt") 
+str_view(x, "cat")
+To match the pattern cat in a case insensitive way, we wrap our pattern in regex() and specify the argument ignore_case = TRUE,
+
+str_view(x, 
+  regex("cat", ignore_case = TRUE))
+Notice that the matches retain their original case and any variant of cat matches.
+
+Try it out to find the catcidents that involved tripping.
+
+```{r}
+# View matches to "TRIP"
+str_view(catcidents, 
+  pattern = "TRIP", 
+  match = TRUE)
+
+# Construct case insensitive pattern
+trip_pattern <- regex("TRIP", ignore_case = TRUE)
+
+# View case insensitive matches to "TRIP"
+str_view(catcidents, 
+  pattern = trip_pattern, 
+  match = TRUE)
+
+# Get subset of matches
+trip <- str_subset(catcidents, pattern = trip_pattern)
+
+# Extract matches
+str_extract(trip, pattern = trip_pattern)
+```
+
+Fixing case problems
+Finally, you might want to transform strings to a common case. You've seen you can use str_to_upper() and str_to_lower(), but there is also str_to_title() which transforms to title case, in which every word starts with a capital letter.
+
+This is another situation where stringi functions offer slightly more functionality than the stringr functions. The stringi function stri_trans_totitle() allows a specification of the type which, by default, is "word", resulting in title case, but can also be "sentence" to give sentence case: only the first word in each sentence is capitalized.
+
+Try outputting the catcidents in a consistent case.
+
+```{r}
+library(stringi)
+
+# Get first five catcidents
+cat5 <- catcidents[1:5]
+
+# Take a look at original
+writeLines(cat5)
+
+# Transform to title case
+writeLines(str_to_title(cat5))
+
+# Transform to title case with stringi
+writeLines(stri_trans_totitle(cat5))
+
+# Transform to sentence case with stringi
+writeLines(stri_trans_totitle(cat5, 
+  type = "sentence"))
+```
+
