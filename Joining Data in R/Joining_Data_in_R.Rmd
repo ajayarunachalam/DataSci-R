@@ -1,0 +1,773 @@
+---
+title: "Joining Data in R"
+output: html_notebook
+---
+A basic join
+As Garrett mentioned in the video, left_join() is the basic join function in dplyr. You can use it whenever you want to augment a data frame with information from another data frame.
+
+For example, left_join(x, y) joins y to x. The second dataset you specify is joined to the first dataset. Keep that in mind as you go through the course.
+
+For this exercise, the code in the editor sets up a left join but doesn't finish it. It's up to you to complete it.
+
+```{r}
+library(dplyr)
+artists <- data.frame(
+  first = c("Jimmy", "George", "Mick", "Tom", "Davy", "John", "Paul", "Jimmy", "Joe", "Elvis", "Keith", "Paul", "Ringo",
+            "Joe", "Brian", "Nancy"),
+  last = c("Buffett", "Harrison", "Jagger", "Jones", "Jones", "Lennon", "McCartney", "Page", "Perry", "Presley", "Richards",
+           "Simon", "Starr", "Walsh", "Wilson", "Wilson"),
+  instrument = c("Guitar", "Guitar", "Vocals", "Vocals", "Vocals", "Guitar", "Bass", "Guitar", "Guitar", "Vocals",
+                 "Guitar", "Guitar", "Drums", "Guitar", "Vocals", "Vocals")
+  
+)
+artists
+
+
+bands <- data.frame(
+  first = c("John", "John Paul", "Jimmy", "Robert", "George", "John", "Paul", "Ringo", "Jimmy", "Mick",
+            "Keith", "Charlie", "Ronnie"),
+  last = c("Bonham", "Jones", "Page", "Plant", "Harrison", "Lennon", "McCartney", "Starr", "Buffett", "Jagger",
+           "Richards", "Watts", "Wood"),
+  band = c("Led Zeppelin","Led Zeppelin","Led Zeppelin","Led Zeppelin","The Beatles","The Beatles","The Beatles",
+           "The Beatles", "The Coral Reefers", "The Rolling Stones", "The Rolling Stones", "The Rolling Stones",
+           "The Rolling Stones")
+)
+bands
+
+# Complete the code to join artists to bands
+bands2 <- left_join(bands, artists, by = c("first", "last"))
+
+# Examine the results
+bands2
+```
+
+A right join
+There is more than one way to execute a left join. Knowing multiple methods will make you a more versatile data scientist, especially as you try to fit joins into pipes created with %>%.
+
+In this exercise, you'll recreate bands2 once more, but this time without using a left_join().
+
+```{r}
+# Finish the code below to recreate bands3 with a right join
+bands2 <- left_join(bands, artists, by = c("first", "last"))
+bands3 <- right_join(artists, bands, by = c("first", "last"))
+
+# Check that bands3 is equal to bands2
+setequal(bands2, bands3)
+```
+
+Inner joins and full joins
+You may have noticed that some of the songs in songs correspond to some of the albums in albums. Suppose you want a new dataset that contains all of the songs for which you have data from both albums and songs. How would you make it?
+
+The artists and bands datasets also share some information. What if you want to join these two datasets in such a way that you retain all of the information available in both tables, without throwing anything away?
+
+You can think of inner joins as the most strict type of join: they only retain observations that appear in both datasets. In contrast, full joins are the most permissive type of join: they return all of the data that appears in both datasets (often resulting in many missing values).
+
+Recall that, *_join(x, y) joins y to x. The second dataset you specify is joined to the first dataset.
+
+```{r}
+
+albums <- data.frame(
+  album = c("A Hard Day's Night", "Magical Mystery Tour", "Beggar's Banquet", "Abbey Road","Led Zeppelin IV",
+            "The Dark Side of the Moon", "Aerosmith", "Rumours", "Hotel California"),
+  band = c("The Beatles", "The Beatles", "The Rolling Stones", "The Beatles", "Led Zeppelin","Pink Floyd",
+           "Aerosmith", "Fleetwood Mac", "Eagles"),
+  year = c(1964, 1967, 1968, 1969, 1971, 1973, 1973, 1977, 1982)
+)
+albums
+
+songs <- data.frame(
+  song = c("Come Together", "Dream On", "Hello, Goodbye", "It's Not Unusual"),
+  album = c("Abbey Road", "Aerosmith", "Magical Mystery Tour", "Along Came Jones"),
+  first = c("John", "Steven", "Paul", "Tom"),
+  last = c("Lennon", "Tyler", "McCartney", "Jones")
+)
+songs
+artists
+```
+
+
+```{r}
+# Join albums to songs using inner_join()
+inner_join(songs, albums, by = "album")
+
+# Join bands to artists using full_join()
+full_join(artists, bands, by = c("first", "last"))
+```
+
+Pipes
+You can combine dplyr functions together with the pipe operator, %>%, to build up an analysis step-by-step. %>% takes the result of the code that comes before it and "pipes" it into the function that comes after it as the first argument of the function.
+
+So for example, the two pieces of code below do the same thing:
+
+full_join(artists, bands, 
+          by = c("first", "last"))
+
+artists %>% 
+  full_join(bands, by = c("first", "last"))
+Pipes are so efficient for multi-step analysis that you will use them for the remainder of the exercises in this course. (If you need a refresher on the pipe operator, check out Data Manipulation in R with dplyr course!)
+
+```{r}
+# Find guitarists in bands dataset (don't change)
+temp <- left_join(bands, artists, by = c("first", "last"))
+temp <- filter(temp, instrument == "Guitar")
+select(temp, first, last, band)
+
+# Reproduce code above using pipes
+bands %>% 
+  left_join(artists, by = c("first", "last")) %>%
+  filter(instrument == "Guitar") %>%
+  select(first, last, band)
+```
+
+Practice with pipes and joins
+We've created a data frame for you called goal. It's available in your workspace, so go ahead and take a look. Your mission, if you choose to accept it, is to create a dataset that's identical to goal.
+
+```{r}
+# Create goal2 using full_join() and inner_join() 
+goal <- artists %>% 
+  full_join(bands, by = c("first", "last")) %>% 
+  inner_join(songs, by = c("first", "last"))
+goal
+```
+
+```{r}
+# Create one table that combines all information
+artists %>% 
+  full_join(bands, by = c("first", "last")) %>% 
+  full_join(songs, by = c("first", "last")) %>% 
+  full_join(albums, by = c("album", "band"))
+```
+
+Apply a semi-join
+As you saw in the video, semi-joins provide a concise way to filter data from the first dataset based on information in a second dataset.
+
+For example, the code in the editor uses semi_join() to create a data frame of the artists in artists who have written a song in songs
+
+```{r}
+# View the output of semi_join()
+artists %>% 
+  semi_join(songs, by = c("first", "last"))
+
+# Create the same result
+artists %>% 
+  right_join(songs, by = c("first", "last")) %>% 
+  filter(!is.na(instrument)) %>% 
+  select(first, last, instrument)
+```
+
+Exploring with semi-joins
+Semi-joins provide a useful way to explore the connections between multiple tables of data.
+
+For example, you can use a semi-join to determine the number of albums in the albums dataset that were made by a band in the bands dataset.
+
+```{r}
+albums %>% 
+  # Collect the albums made by a band
+  semi_join(bands, albums, by = "band") %>% 
+  # Count the albums made by a band
+  nrow()
+```
+
+Apply an anti-join
+As Garrett mentioned in the video, anti-joins provide a useful way to reason about how a mutating join will work before you apply the join.
+
+For example, you can use an anti-join to see which rows will not be matched to a second dataset by a join.
+
+```{r}
+# Return rows of artists that don't have bands info
+artists %>% 
+  anti_join(bands, artists, by = c("first", "last"))
+```
+
+Apply another anti-join
+Anti-joins with anti_join() also provide a great way to diagnose joins that go wrong.
+
+For example, they can help you zero-in on rows that have capitalization or spelling errors in the keys. These things will make your primary and secondary keys appear different to R, even though you know they refer to the same thing.
+
+```{r}
+labels <- data.frame(
+  album = c("Abbey Road", "A Hard Days Night", "Magical Mystery Tour", "Led Zeppelin IV", "The Dark Side of the Moon",
+            "Hotel California", "Rumours", "Aerosmith", "Beggar's Banquet"),
+  label = c("Apple", "Parlophone", "Parlophone", "Atlantic", "Harvest", "Asylum",
+            "Warner Brothers", "Columbia", "Decca")
+)
+labels
+```
+
+```{r}
+# Check whether album names in labels are mis-entered
+labels %>% 
+  anti_join(albums, by = "album")
+```
+
+Which filtering join?
+Think you have filtering joins down? Let's check.
+
+Which filtering join would you use to determine how many rows in songs match a label in labels?
+
+```{r}
+# Determine which key joins labels and songs
+labels
+songs
+
+# Check your understanding
+songs %>% 
+  # Find the rows of songs that match a row in labels
+  semi_join(labels, by = "album") %>% 
+  # Number of matches between labels and songs
+  nrow()
+```
+
+How many songs are there?
+We have loaded two datasets in your workspace, aerosmith and greatest_hits, each of which represents an album from the band Aerosmith. Each row in either of the datasets is a song on that album.
+
+How many unique songs do these two albums contain in total?
+
+```{r}
+aerosmith <- read.csv("aerosmith/aerosmith.csv")
+aerosmith
+greatest_hits <- read.csv("aerosmith/greatest_hits.csv")
+greatest_hits
+
+aerosmith %>% 
+  # Create the new dataset using a set operation
+  union(greatest_hits, aerosmith) %>% 
+  # Count the total number of songs
+  nrow()
+```
+
+Greatest hits
+Which songs from Aerosmith made it onto Greatest Hits?
+
+```{r}
+# Create the new dataset using a set operation
+aerosmith %>% 
+  intersect(greatest_hits)
+```
+
+Live! Bootleg songs
+live contains the songs from a third Aerosmith album, Live! Bootleg.
+
+Which songs are on Live! Bootleg but not on Greatest Hits? Notice that the length of songs may be different when they are performed live.
+
+```{r}
+live <- read.csv("live.csv")
+# Select the song names from live
+live_songs <- live %>% select(song)
+
+# Select the song names from greatest_hits
+greatest_songs <- greatest_hits %>% select(song)
+
+# Create the new dataset using a set operation
+live_songs %>% 
+  setdiff(greatest_songs)
+```
+
+Multiple operations
+There is no set operation to find rows that appear in one data frame or another, but not both. However, you can accomplish this by combining set operators, as Garrett showed in the video.
+
+Can you think of a combination that would answer the question, "Which songs appear on one of Live! Bootleg or Greatest Hits, but not both?"
+
+```{r}
+# Select songs from live and greatest_hits
+# Select the song names from live
+live_songs <- live %>% select(song)
+
+# Select the song names from greatest_hits
+greatest_songs <- greatest_hits %>% select(song)
+
+# Return the songs that only exist in one dataset
+temp <- union(live_songs, greatest_songs)
+temp1 <- intersect(live_songs, greatest_songs)
+setdiff(temp, temp1)
+```
+
+Apply setequal
+definitive and complete contain the songs that appear in competing Led Zeppelin anthologies: The Definitive Collection and The Complete Studio Recordings, respectively.
+
+Both anthologies claim to contain the complete studio recordings of Led Zeppelin, but do the anthologies contain the same exact songs?
+
+```{r}
+complete <- read.csv("complete.csv")
+definitive <- read.csv("definitive.csv")
+
+# Check if same order: definitive and complete
+identical(definitive, complete)
+
+# Check if any order: definitive and complete
+setequal(definitive, complete)
+
+# Songs in definitive but not complete
+setdiff(definitive, complete)
+
+
+# Songs in complete but not definitive
+setdiff(complete, definitive)
+```
+
+Apply setequal again
+A few exercises ago, you saw that an intersect() is analagous to a semi_join() when two datasets contain the same variables and each variable is used in the key.
+
+Under these conditions, setdiff() is also analagous to one of the filtering joins.
+
+```{r}
+# Return songs in definitive that are not in complete
+definitive %>% 
+  anti_join(complete, by = c("song", "album"))
+
+# Return songs in complete that are not in definitive
+complete %>% 
+  anti_join(definitive, by = c("song", "album"))
+```
+
+Comparing albums
+It appears that The Definitive Collection contains songs from the soundtrack of The Song Remains the Same, a movie filmed during a live Led Zeppelin concert. Is this the only difference between The Definitive Collection and The Complete Studio Recordings?
+
+```{r}
+soundtrack <- read.csv("soundtrack.csv")
+# Check if same order: definitive and union of complete and soundtrack
+identical(definitive, union(complete, soundtrack))
+
+
+
+# Check if any order: definitive and union of complete and soundtrack
+
+setequal(definitive, union(complete, soundtrack))
+```
+
+Which bind?
+side_one and side_two contain tracks from sides one and two, respectively, of Pink Floyd's famous album The Dark Side of the Moon.
+
+Bind these datasets into a single table using a dplyr function. Which type of bind should you use?
+
+```{r}
+side_one <- read.csv("sides/side_one.csv")
+side_two <- read.csv("sides/side_two.csv")
+
+# Examine side_one and side_two
+side_one
+side_two
+
+# Bind side_one and side_two into a single dataset
+side_one %>% 
+  bind_rows(side_two)
+```
+
+Bind rows
+discography and jimi contain all of the information you need to create an anthology dataset for the band The Jimi Hendrix Experience.
+
+discography contains a data frame of each album by The Jimi Hendrix Experience and the year of the album.
+
+jimi contains a list of data frames of album tracks, one for each album released by The Jimi Hendrix Experience. As Garrett explained in the video, you can pass bind_rows() a list of data frames like jimi to bind together into a single data frame.
+
+```{r}
+discography <- read.csv("jimi_hendrix/discography.csv")
+jimi <- read.csv("jimi_hendrix/jimi3.csv")
+
+# Examine discography and jimi
+discography
+jimi
+
+jimi %>% 
+  # Bind jimi into a single data frame
+  bind_rows( .id = "album" ) %>% 
+  # Make a complete data frame
+  left_join(discography, by = "album")
+```
+
+Bind columns
+Let's make a compilation of Hank Williams' 67 singles. To do this, you can use hank_years and hank_charts:
+
+hank_years contains the name and release year of each of Hank Williams' 67 singles.
+hank_charts contains the name of each of Hank Williams' 67 singles as well as the highest position it earned on the Billboard sales charts.
+Each dataset contains the same songs, but hank_years is arranged chronologically by year, while hank_charts is arranged alphabetically by song title.
+
+```{r}
+hank_charts <- read.csv("hank_williams/hank_charts.csv")
+hank_years <- read.csv("hank_williams/hank_years.csv")
+
+# Examine hank_years and hank_charts
+hank_years
+hank_charts
+
+hank_years %>% 
+  # Reorder hank_years alphabetically by song title
+  arrange(song) %>% 
+  # Select just the year column
+  select(year) %>% 
+  # Bind the year column
+  bind_cols(hank_charts) %>% 
+  # Arrange the finished dataset
+  arrange(year)
+```
+
+Make a data frame
+Let's make a Greatest Hits compilation for Hank Williams. hank_year, hank_song, and hank_peak contain the columns of the data frame you made in the last exercise.
+
+```{r}
+hank <- hank_years %>% 
+  # Reorder hank_years alphabetically by song title
+  arrange(song) %>% 
+  # Select just the year column
+  select(year) %>% 
+  # Bind the year column
+  bind_cols(hank_charts) %>% 
+  # Arrange the finished dataset
+  arrange(year)
+
+hank_year <- hank$year
+hank_song <- hank$song
+hank_peak <- hank$peak
+
+# Make combined data frame using data_frame()
+data_frame(year = hank_year, song = hank_song, peak = hank_peak) %>% 
+  # Extract songs where peak equals 1
+  filter(hank_peak == 1)
+```
+
+Lists of columns
+As a data scientist, you should always be prepared to handle raw data that comes in many different formats.
+
+hank saves Hank Williams' singles in a different way, as a list of vectors. Can you turn hank into the same dataset that you made in the last exercise?
+
+```{r}
+hank <- list(year = hank_year, song = hank_song, peak = hank_peak)
+# Examine the contents of hank
+hank
+
+# Convert the hank list into a data frame
+as_data_frame(hank) %>% 
+  # Extract songs where peak equals 1
+  filter(peak == 1)
+```
+
+Lists of rows (data frames)
+michael contains a list of data frames, one for each album released by Michael Jackson. The code in the editor attempts to bind the data frames into a single data frame and then extract a data frame of the top tracks on each album.
+
+However, the code runs into a problem. The commented line fails because as_data_frame() combines a list of column vectors into a data frame. However, michael is a list of data frames.
+
+Can you fix the code? After all, you have seen something like this before.
+
+```{r}
+michael <- read.csv("michael_jackson/michael10.csv")
+# Examine the contents of michael
+michael
+
+bind_rows(michael, .id = "album") %>% 
+  group_by(album) %>% 
+  mutate(rank = min_rank(peak)) %>% 
+  filter(rank == 1) %>% 
+  select(-rank, -peak)
+```
+
+sixties contains the top selling albums in the US in the 1960s. It stores year as a numeric (double). When you combine it with seventies, which stores year as a factor, bind_rows() returns an error.
+
+You can fix this by coercing seventies$year to a numeric. But if you do it like this, something surprising happens.
+
+seventies %>% 
+  mutate(year = as.numeric(year))
+Can you fix things?
+
+```{r}
+sixties <- read.csv("top_sellers/sixties.csv")
+seventies <- readRDS("top_sellers/seventies.rds")
+seventies %>% 
+  # Coerce seventies$year into a useful numeric
+  mutate(year = as.numeric(as.character(year))) %>% 
+  # Bind the updated version of seventies to sixties
+  bind_rows(sixties) %>% 
+  arrange(year)
+```
+
+Spot the key
+R's data frames can store important information in the row.names attribute. This is not a tidy way to store data, but it does happen quite commonly. If the primary key of your dataset is stored in row.names, you will have trouble joining it to other datasets.
+
+For example, stage_songs contains information about songs that appear in musicals. However, it stores the primary key (song name) in the row.names attribute. As a result, you cannot access the key with a join function.
+
+One way to remedy this problem is to use the function rownames_to_column() from the tibble package. rownames_to_column() returns a copy of a dataset with the row names added to the data as a column.
+
+```{r}
+stage_songs <- read.csv("musicals/stage_songs.csv")
+stage_writers <- read.csv("musicals/stage_writers.csv")
+stage_songs
+stage_writers
+library(tibble)
+stage_songs %>% 
+  # Add row names as a column named song
+  rownames_to_column( var = "song") %>% 
+  # Left join stage_writers to stage_songs
+  left_join(stage_writers, by = "song")
+
+```
+
+Missing keys
+Julie Andrews is a famous singer who performed in The Sound of Music, which is documented in the singers data frame. The two_songs data frame records a couple of songs that she sang during her career.
+
+Unfortunately, when you join the datasets together, something odd happens. According to the result, who sings A Spoonful of Sugar? Why does this happen?
+
+You can avoid this outcome by removing rows that contain NAs in the keys before joining.
+
+```{r}
+singers <- data.frame(movie = c(NA, 'The Sound of Music'),
+                        singer = c('Arnold Schwarzenegger','Julie Andrews'))
+
+two_songs <- data.frame(song = c('Do-Re-Mi','A Spoonful of Sugar'),
+                        movie = c('The Sound of Music',NA))
+
+# Examine the result of joining singers to two_songs
+two_songs %>% inner_join(singers, by = "movie")
+
+# Remove NA's from key before joining
+two_songs %>% 
+  filter(!is.na(movie)) %>% 
+  inner_join(singers, by = "movie")
+```
+
+A subset of keys
+Often the same column name will be used by two datasets to refer to different things. For example, the data frame movie_studios uses name to refer to the name of a movie studio. movie_years uses name to refer to the name of an actor.
+
+You could join these datasets (they describe the same movies), but you wouldn't want to use the name column to do so!
+
+dplyr will ignore duplicate column names if you set the by argument and do not include the duplicated name in the argument. When you do this, dplyr will treat the columns in the normal fashion, but it will add .x and .y to the duplicated names to help you tell the columns apart.
+
+```{r}
+movie_studios <- read.csv("movies/movie_studios.csv")
+movie_years <- read.csv("movies/movie_years.csv")
+movie_years %>% 
+  # Left join movie_studios to movie_years
+  left_join(movie_studios, by = "movie") %>% 
+  # Rename the columns: artist and studio
+  rename(artist = name.x, studio = name.y)
+```
+
+Mis-matched key names
+Just as the same name can refer to different things in different datasets, different names can refer to the same thing. For example, elvis_movies and elvis_songs both describe movies starring Elvis Presley, but each uses a different column name to describe the name of the movie.
+
+This type of inconsistency can be frustrating when you wish to join data based on the inconsistently named variable.
+
+To make the join, set by to a named vector. The names of the vector will refer to column names in the primary dataset (x). The values of the vector will correspond to the column names in the secondary dataset (y), e.g.
+
+x %>% left_join(y, by = c("x.name1" = "y.name2"))
+dplyr will make the join and retain the names in the primary dataset.
+
+```{r}
+# Identify the key column
+elvis_songs <- read.csv("elvis/elvis_songs.csv")
+elvis_movies <- read.csv("elvis/elvis_movies.csv")
+
+elvis_movies %>% 
+  # Left join elvis_songs to elvis_movies by this column
+  left_join(elvis_songs, by = c("name" = "movie")) %>% 
+  # Rename columns
+  rename(movie = name, song = name.y)
+```
+
+More mismatched names
+Now, you'll practice what you learned in the last exercise.
+
+movie_years and movie_directors both describe movies that feature Frank Sinatra and Bing Crosby. However, each data frame uses different column names to refer to the key variables that connect the datasets.
+
+Can you join the data?
+
+```{r}
+movie_directors <- read.csv("movies/movie_directors.csv")
+# Identify the key columns
+movie_directors
+movie_years
+
+movie_years %>% 
+  # Left join movie_directors to movie_years
+  left_join(movie_directors, by = c("movie" = "name")) %>% 
+  # Arrange the columns using select()
+  select(year, movie, artist = name, director, studio)
+```
+
+Base R
+dplyr joins are also similar to the merge() function in base R.
+
+For example, the code in the editor uses merge() and arrange() to perform a left_join() on bands and artists.
+
+```{r}
+# Alter the code to perform the join with a dplyr function
+left_join(bands, artists, by = c("first", "last"))
+```
+
+Universal keys?
+As Garrett mentioned, the Lahman database contains 26 datasets. Before starting to analyze the data, you'll examine how the datasets are related to each other.
+
+In particular, do any variable names span all of the datasets?
+
+```{r}
+library(Lahman)
+players <- Master %>% 
+  # Return one row for each distinct player
+  distinct(playerID, nameFirst, nameLast)
+```
+
+Missing salaries
+Now that we know who the players are, let's check our salary coverage. How many players are completely missing salary information?
+
+```{r}
+players %>% 
+  # Find all players who do not appear in Salaries
+  anti_join(Salaries, by = "playerID") %>%
+  # Count them
+  count()
+```
+
+Unpaid games?
+Now that we know there is a huge hole in the salary data, let's see if we can explain it. Is it possible that these players somehow did not play (and hence did not earn a salary)?
+
+We can check with the Appearances data frame. Appearances contains information about every game played in major league baseball. That is, if a player played a game, it would show up as a row in Appearances.
+
+```{r}
+players %>% 
+  anti_join(Salaries, by = "playerID") %>% 
+  # How many unsalaried players appear in Appearances?
+  semi_join(Appearances, by = "playerID") %>% 
+  count()
+```
+
+How many games?
+Perhaps the unsalaried players only played one or two games, and hence did not earn a full salary. Can you determine how many games each of these unsalaried players played?
+
+```{r}
+players %>% 
+  # Find all players who do not appear in Salaries
+  anti_join(Salaries, by = "playerID") %>% 
+  # Join them to Appearances
+  left_join(Appearances, by = "playerID") %>%
+  # Calculate total_games for each player
+  group_by(playerID) %>% 
+  summarize(total_games = sum(G_all, na.rm = TRUE)) %>%
+  # Arrange in descending order by total_games
+  arrange(desc(total_games))
+```
+
+How many at-bats?
+Is it possible that the unsalaried players did not actually play in the games that they appeared in? One way to check would be to determine if the players had an at-bat (i.e. batted) in the games that they appeared in.
+
+```{r}
+players %>%
+  # Find unsalaried players
+  anti_join(Salaries, by = "playerID") %>% 
+  # Join Batting to the unsalaried players
+  left_join(Batting, by = "playerID") %>% 
+  # Group by player
+  group_by(playerID) %>% 
+  # Sum at-bats for each player
+  summarize(total_at_bat = sum(AB, na.rm = TRUE)) %>% 
+  # Arrange in descending order
+  arrange(desc(total_at_bat))
+```
+
+Hall of fame nominations
+As Garrett mentioned, the Hall of Fame is a collection of distinguished baseball players selected by a committee of baseball experts. As with any hall of fame, more players are nominated for membership than are actually admitted.
+
+Let's see how many players have been nominated for the Hall of Fame.
+
+```{r}
+# Find the distinct players that appear in HallOfFame
+nominated <- HallOfFame %>% 
+  distinct(playerID)
+
+nominated %>% 
+  # Count the number of players in nominated
+  count()
+
+nominated_full <- nominated %>% 
+  # Join to Master
+  left_join(Master, by = "playerID") %>% 
+  # Return playerID, nameFirst, nameLast
+  select(playerID, nameFirst, nameLast)
+```
+
+Hall of fame inductions
+In the previous exercise, we saw that 1,239 players were nominated for the hall of fame. Let's now see how many players were admitted to the hall of fame to examine how selective the voting process is.
+
+```{r}
+# Find distinct players in HallOfFame with inducted == "Y"
+inducted <- HallOfFame %>% 
+  filter(inducted == "Y") %>% 
+  distinct(playerID)
+
+inducted %>% 
+  # Count the number of players in inducted
+  count()
+
+inducted_full <- inducted %>% 
+  # Join to Master
+  left_join(Master, by = "playerID") %>% 
+  # Return playerID, nameFirst, nameLast
+  select(playerID, nameFirst, nameLast)
+```
+
+Awards
+Now that we know who was inducted and who was nominated, let's examine what separates the nominees who were inducted from the nominees who were not.
+
+Let's start with a simple question: Did nominees who were inducted earn more awards than nominees who were not inducted?
+
+We can use AwardsPlayers to answer the question. It lists the playerID's of players who won baseball awards, and it contains one row for each award awarded in major league baseball.
+
+```{r}
+# Tally the number of awards in AwardsPlayers by playerID
+nAwards <- AwardsPlayers %>% 
+  group_by(playerID) %>% 
+  tally()
+
+nAwards %>% 
+  # Filter to just the players in inducted 
+  semi_join(inducted, by = "playerID") %>% 
+  # Calculate the mean number of awards per player
+  summarize(avg_n = mean(n, na.rm = TRUE))
+
+nAwards %>% 
+  # Filter to just the players in nominated 
+  semi_join(nominated, by = "playerID") %>%
+  # Filter to players NOT in inducted 
+  anti_join(inducted, by = "playerID") %>%
+  # Calculate the mean number of awards per player
+  summarize(avg_n = mean(n, na.rm = TRUE))
+```
+
+Salary
+Salary may provide another way to differentiate inductees from non-inductees. Does the maximum salary earned by inductees tend to be greater than the maximum salary earned by nominees who were not inducted?
+
+```{r}
+# Find the players who are in nominated, but not inducted
+notInducted <- nominated %>% 
+  setdiff(inducted)
+
+Salaries %>% 
+  # Find the players who are in notInducted
+  semi_join(notInducted, by = "playerID") %>%
+  # Calculate the max salary by player
+  group_by(playerID) %>% 
+  summarize(max_salary = max(salary, na.rm = TRUE)) %>% 
+  # Calculate the average of the max salaries
+  summarize(avg_salary = mean(max_salary, na.rm = TRUE))
+
+# Repeat for players who were inducted
+Salaries %>% 
+  semi_join(inducted, by = "playerID") %>% 
+  group_by(playerID) %>% 
+  summarize(max_salary = max(salary, na.rm = TRUE)) %>% 
+  summarize(avg_salary = mean(max_salary, na.rm = TRUE))
+```
+
+Retirement
+One of the rules of the Hall of Fame is that players cannot be nominated until five years after they retire. Is this reflected in our data?
+
+```{r}
+Appearances %>% 
+  # Filter Appearances against nominated
+  semi_join(nominated, by = "playerID") %>% 
+  # Find last year played by player
+  group_by(playerID) %>% 
+  summarize(last_year = max(yearID)) %>% 
+  # Join to full HallOfFame
+  left_join(HallOfFame, by = "playerID") %>% 
+  # Filter for unusual observations
+  filter(last_year >= yearID)
+```
+
