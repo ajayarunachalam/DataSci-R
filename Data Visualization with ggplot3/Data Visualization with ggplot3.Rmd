@@ -1,0 +1,709 @@
+---
+title: "Data Visualization with ggplot 3"
+output: html_notebook
+---
+
+Refresher (1)
+As a refresher to statistical plots, let's build a scatter plot with an additional statistic layer.
+
+A dataset called movies_small is coded in your workspace. It is a random sample of 1000 observations from the larger movies dataset, that's inside the ggplot2movies package. The dataset contains information on movies from IMDB. The variable votes is the number of IMDB users who have rated a movie and the rating (converted into a categorical variable) is the average rating for the movie.
+
+```{r}
+# Create movies_small
+library(ggplot2movies)
+library(ggplot2)
+set.seed(123)
+movies_small <- movies[sample(nrow(movies), 1000), ]
+movies_small$rating <- factor(round(movies_small$rating))
+
+# Explore movies_small with str()
+str(movies_small)
+
+# Build a scatter plot with mean and 95% CI
+ggplot(movies_small, aes(x = rating, y = votes)) +
+  geom_point() +
+  stat_summary(fun.data = "mean_cl_normal",
+               geom = "crossbar",
+               width = 0.2,
+               col = "red") +
+  scale_y_log10()
+```
+
+Refresher (2)
+The plot in the graphics device is a variation on an oft-seen ggplot2 example using the diamonds dataset (containing information on several variables of over 50,000 diamonds).
+
+Recall that there are a variety of scale_ functions. Here, data are transformed or filtered first, after which the plot and associated statistics are computed. For example, scale_y_continuous(limits = c(100, 1000) will remove values outside that range.
+
+Contrast this to coord_cartesian(), which computes the statistics before plotting. That means that the plot and summary statistics are performed on the raw data. That's why we say that coord_cartesian(c(100, 1000)) "zooms in" a plot. This was discussed in the chapter on coordinates in course 2.
+
+Here we're going to expand on this and introduce scale_x_log10() and scale_y_log10() which perform log10 transformations, and coord_equal(), which sets an aspect ratio of 1 (coord_fixed() is also an option).
+
+Your task is to reproduce the plot in the viewer. Before you do this, it might be a good idea to explore diamonds in the console if you are not familiar with it.
+
+```{r}
+# Reproduce the plot
+ggplot(diamonds, aes(x = carat, y = price, col = color)) +
+  geom_point(alpha = 0.5, size = 0.5, shape = 16) +
+  scale_x_log10(expression(log[10](Carat)), limits = c(0.1,10)) +
+  scale_y_log10(expression(log[10](Price)), limits = c(100,100000)) +
+  scale_color_brewer(palette = "YlOrRd") +
+  coord_equal() +
+  theme_classic()
+```
+
+Refresher (3)
+The goal plot from the previous exercise is coded in your editor. Here you'll expand on this plot with stat_smooth() model instead of showing every data point.
+
+```{r}
+# Add smooth layer and facet the plot
+ggplot(diamonds, aes(x = carat, y = price, col = color)) +
+  stat_smooth(method = "lm") +
+  scale_x_log10(expression(log[10](Carat)), limits = c(0.1,10)) +
+  scale_y_log10(expression(log[10](Price)), limits = c(100,100000)) +
+  scale_color_brewer(palette = "YlOrRd") +
+  coord_equal() +
+  theme_classic()
+```
+
+Transformations
+In this exercise you'll return to the first plotting exercise and see how box plots compare to dot plots for representing high-density data.
+
+Box plots are very useful, but they don't solve all your problems all the time, for example, when your data are heavily skewed, you will still need to transform it. You'll see that here, using the movies_small dataset, a subset of 10,000 observations of ggplot2movies::movies.
+
+```{r}
+# movies_small is available
+
+# Add a boxplot geom
+d <- ggplot(movies_small, aes(x = rating, y = votes)) +
+  geom_point() +
+  geom_boxplot() +
+  stat_summary(fun.data = "mean_cl_normal",
+               geom = "crossbar",
+               width = 0.2,
+               col = "red")
+
+# Untransformed plot
+d
+
+# Transform the scale
+d + scale_y_log10()
+
+# Transform the coordinates
+d + coord_trans(y = "log10")
+```
+
+Cut it up!
+If you only have continuous variables, you can convert them into ordinal variables using any of the following functions:
+
+cut_interval(x, n) makes n groups from vector x with equal range.
+cut_number(x, n) makes n groups from vector x with (approximately) equal numbers of observations.
+cut_width(x, width) makes groups of width width from vector x.
+This is useful when you want to summarize a complex scatter plot like the one shown in the viewer. By applying these functions to the carat variable and mapping that onto the group aesthetic, you can convert the scatter plot in the viewer into a series of box plots on the fly.
+
+```{r}
+# Plot object p
+p <- ggplot(diamonds, aes(x = carat, y = price))
+
+# Use cut_interval
+p + geom_boxplot(aes(group = cut_interval(carat, n=10)))
+
+# Use cut_number
+p + geom_boxplot(aes(group = cut_number(carat, n=10)))
+
+# Use cut_width
+p + geom_boxplot(aes(group = cut_width(carat, width = 0.25)))
+```
+
+geom_density()
+To make a straightforward density plot, add a geom_density() layer.
+
+Before plotting, you will calculate the emperical density function, similar to how you can use the density() function in the stats package, available by default when you start R. The following default parameters are used (you can specify these arguments both in density() as well as geom_density()):
+
+bw = "nrd0", telling R which rule to use to choose an appropriate bandwidth.
+kernel = "gaussian", telling R to use the Gaussian kernel.
+We've already prepared a data frame test_data for you, containing three columns: norm, bimodal and uniform. Each column represents 200 samples from a normal, bimodal and uniform distribution.
+
+```{r}
+rn <- rnorm(200, 0, 1)
+
+bimodalDistFunc <- function (n,cpct, mu1, mu2, sig1, sig2) {
+  y0 <- rlnorm(n,mean=mu1, sd = sig1)
+  y1 <- rlnorm(n,mean=mu2, sd = sig2)
+
+  flag <- rbinom(n,size=1,prob=cpct)
+  y <- y0*(1 - flag) + y1*flag 
+}
+
+bm <- bimodalDistFunc(n=200,0.4,-1,1, 1,1)
+ud <- runif(200, -2, 1)
+test_data <- data.frame("norm" = rn,
+                        "bimodal" = bm,
+                        "uniform" = ud)
+head(test_data)
+
+```
+
+```{r}
+# test_data is available
+
+# Calculating density: d
+d <- density(test_data$norm)
+
+# Use which.max() to calculate mode
+mode <- d$x[which.max(d$y)]
+
+# Finish the ggplot call
+ggplot(test_data, aes(x = norm)) +
+  geom_rug() +
+  geom_density() +
+  geom_vline(xintercept = mode, col = "red")
+```
+
+Combine density plots and histogram
+Sometimes it is useful to compare a histogram with a density plot. However, the histogram's y-scale must first be converted to frequency instead of absolute count. After doing so, you can add an empirical PDF using geom_density() or a theoretical PDF using stat_function().
+
+Can you finish the plot below by following the steps?
+
+```{r}
+# test_data is available
+
+# Arguments you'll need later on
+fun_args <- list(mean = mean(test_data$norm), sd = sd(test_data$norm))
+
+# Finish the ggplot
+ggplot(test_data, aes(x = norm)) +
+geom_histogram(aes(y=..density..))+
+geom_density(col = "red") +
+stat_function(fun = dnorm, args = fun_args, col="blue")
+```
+
+Adjusting density plots
+There are three parameters that you may be tempted to adjust in a density plot:
+
+bw - the smoothing bandwidth to be used, see ?density for details
+adjust - adjustment of the bandwidth, see density for details
+kernel - kernel used for density estimation, defined as
+"g" = gaussian
+"r" = rectangular
+"t" = triangular
+"e" = epanechnikov
+"b" = biweight
+"c" = cosine
+"o" = optcosine
+In this exercise you'll use a dataset containing only four points, small_data, so that you can see how these three arguments affect the shape of the density plot.
+
+The vector get_bw contains the bandwidth that is used by default in geom_density(). p is a basic plotting object that you can start from.
+
+```{r}
+# small_data is available
+small_data <- data.frame("x" = c(-3.5, 0.0,0.5, 6.0))
+
+# Get the bandwith
+get_bw <- density(small_data$x)$bw
+
+# Basic plotting object
+p <- ggplot(small_data, aes(x = x)) +
+  geom_rug() +
+  coord_cartesian(ylim = c(0,0.5))
+
+# Create three plots
+p + geom_density()
+p + geom_density(adjust = 0.25)
+p + geom_density(bw = 0.25 * get_bw)
+
+# Create two plots
+p + geom_density(kernel = "r")
+p + geom_density(kernel = "e")
+```
+
+Box plots with varying width
+A drawback of showing a box plot per group, is that you don't have any indication of the sample size, n, in each group, that went into making the plot. One way of dealing with this is to use a variable width for the box, which reflects differences in n.
+
+Can you add some good-looking box plots to the basic plot coded on the right?
+
+```{r}
+# Finish the plot
+ggplot(diamonds, aes(x = cut, y = price, col = color)) +
+  geom_boxplot(varwidth = TRUE) +
+  facet_grid(. ~ color)
+```
+
+Mulitple density plots
+In this exercise you'll combine multiple density plots. Here, you'll combine just two distributions, a normal and a bimodal.
+
+The first thing to remember is that you can consider values as two separate variables, like in the test_data data frame, or as a single continuous variable with their ID as a separate categorical variable, like in the test_data2 data frame. test_data2 is more convenient for combining and comparing multiple distributions.
+
+```{r}
+test_data2 <- data.frame("dist" = c(rep("norm", 200), rep("bimodal", 200)),
+                         "value" = c(test_data$norm, test_data$bimodal))
+
+# test_data and test_data2 are available
+str(test_data)
+str(test_data2)
+
+# Plot with test_data
+ggplot(test_data, aes(x = norm)) +
+  geom_rug()+
+  geom_density()
+
+# Plot two distributions with test_data2
+ggplot(test_data2, aes(x = value, fill = dist, col = dist)) +
+  geom_rug(alpha = 0.6) +
+  geom_density(alpha = 0.6)
+
+```
+
+Multiple density plots (2)
+When you looked at multiple box plots, you compared the total sleep time of various mammals, sorted according to their eating habits. One thing you noted is that for insectivores, box plots didn't really make sense, since there were only 5 observations to begin with. You decided that you could nonetheless use the width of a box plot to show the difference in sample size between the groups. Here, you'll see a similar thing with density plots.
+
+A cleaned up version of the mammalian dataset is available as mammals.
+
+```{r}
+head(msleep)
+mammals <- msleep[,c("vore","sleep_total")]
+mammals
+```
+
+```{r}
+# Individual densities
+ggplot(mammals[mammals$vore == "Insecti", ], aes(x = sleep_total, fill = vore)) +
+  geom_density(col = NA, alpha = 0.35) +
+  scale_x_continuous(limits = c(0, 24)) +
+  coord_cartesian(ylim = c(0, 0.3))
+
+# With faceting
+ggplot(mammals, aes(x = sleep_total, fill = vore)) +
+  geom_density(col = NA, alpha = 0.35) +
+  scale_x_continuous(limits = c(0, 24)) +
+  coord_cartesian(ylim = c(0, 0.3)) +
+  facet_wrap( ~ vore, nrow = 2)
+
+# Note that by default, the x ranges fill the scale
+ggplot(mammals, aes(x = sleep_total, fill = vore)) +
+  geom_density(col = NA, alpha = 0.35) +
+  scale_x_continuous(limits = c(0, 24)) +
+  coord_cartesian(ylim = c(0, 0.3))
+
+# Trim each density plot individually
+ggplot(mammals, aes(x = sleep_total, fill = vore)) +
+  geom_density(col = NA, alpha = 0.35, trim = TRUE) +
+  scale_x_continuous(limits=c(0,24)) +
+  coord_cartesian(ylim = c(0, 0.3))
+```
+
+Weighted density plots
+When plotting a single variable, the density plots (and their bandwidths) are calculated separate for each variable (see the plot from the previous exercise, provided).
+
+However, when you compare several variables (such as eating habits) it's useful to see the density of each subset in relation to the whole data set. This holds true for multiple density plots as well as for violin plots.
+
+For this, we need to weight the density plots so that they're relative to each other. Each density plot is adjusted according to what proportion of the total data set each sub-group represents. We calculated this using the dplyr commands on lines 11-15.
+
+The mammals data frame is available as before. After executing the commnads, it will have the variable n, which we'll use for weighting.
+
+```{r}
+# Unweighted density plot from before
+ggplot(mammals, aes(x = sleep_total, fill = vore)) +
+  geom_density(col = NA, alpha = 0.35) +
+  scale_x_continuous(limits = c(0, 24)) +
+  coord_cartesian(ylim = c(0, 0.3))
+
+# Unweighted violin plot
+ggplot(mammals, aes(x = vore, y = sleep_total, fill = vore)) +
+  geom_violin()
+
+# Calculate weighting measure
+library(dplyr)
+mammals2 <- mammals %>%
+  group_by(vore) %>%
+  mutate(n = n() / nrow(mammals)) -> mammals
+
+# Weighted density plot
+ggplot(mammals, aes(x = sleep_total, fill = vore)) +
+  geom_density(aes(weight = n), col = NA, alpha = 0.35) +
+  scale_x_continuous(limits = c(0, 24)) +
+  coord_cartesian(ylim = c(0, 0.3))
+
+# Weighted violin plot
+ggplot(mammals, aes(x = vore, y = sleep_total, fill = vore)) +
+  geom_violin(aes(weight = n), col = NA)
+```
+
+2D density plots (1)
+You can consider two orthogonal density plots in the form of a 2D density plot. Just like with a 1D density plot, you can adjust the bandwidth of both axes independently.
+
+The data is stored in the faithful data frame, available in the datasets package. The object p contains the base definitions of a plot.
+
+```{r}
+# Base layers
+p <- ggplot(faithful, aes(x = waiting, y = eruptions)) +
+  scale_y_continuous(limits = c(1, 5.5), expand = c(0, 0)) +
+  scale_x_continuous(limits = c(40, 100), expand = c(0, 0)) +
+  coord_fixed(60 / 4.5)
+
+# 1 - Use geom_density_2d()
+p + geom_density_2d()
+
+# 2 - Use stat_density_2d() with arguments
+p + stat_density_2d(aes(col = ..level..), h = c(5, 0.5))
+```
+
+2D density plots (2)
+Continuing with the density plots from the last exercise, here you'll explore the viridis package. This package contains multi-hue color palettes suitable for continuous variables.
+
+The advantage of these scales is that instead of providing an even color gradient for a continuous scale, they highlight the highest values by using an uneven color gradient on purpose. The high values are lighter colors (yellow versus blue), so they stand out more.
+
+A shaded 2D density plot showing the same data as the previous exercise has been provided for you. Up to you to upgrade it!
+
+```{r}
+# Load in the viridis package
+library(viridis)
+
+# Add viridis color scale
+ggplot(faithful, aes(x = waiting, y = eruptions)) +
+  scale_y_continuous(limits = c(1, 5.5), expand = c(0,0)) +
+  scale_x_continuous(limits = c(40, 100), expand = c(0,0)) +
+  coord_fixed(60/4.5) +
+  stat_density_2d(geom = "tile", aes(fill = ..density..), h=c(5,.5), contour = FALSE)+ scale_fill_viridis()
+```
+
+Pair plots and correlation matrices
+On startup, R features two useful quick-and-dirty pairs plots functions. They both only take continuous variables.
+
+You'll be working with the iris dataset and with mtcars_fact, a version of mtcars where categorical variables have been converted into actual factor columns.
+
+```{r}
+# pairs
+pairs(iris[1:4])
+
+# chart.Correlation
+library(PerformanceAnalytics)
+chart.Correlation(iris[1:4])
+
+# ggpairs
+library(GGally)
+ggpairs(iris[1:3])
+```
+
+Create a correlation matrix in ggplot2
+Instead of using an off-the-shelf correlation matrix function, you can of course create your own plot. Just for fun, in this exercise, you'll re-create the scatterplot you see on the right. The strength of the correlation is depicted by the size and color of the points and labels.
+
+For starters, a correlation matrix can be calculated using, for example, cor(dataframe) (if all variables are numerical). Before you can use your data frame to create your own correlation matrix plot, you'll need to get it in the right format.
+
+In the editor, you can see the definition of cor_list(), a function that re-formats the data frame x. Here, L is used to add the points to the lower triangle of the matrix, and M is used to add the numerical values as text to the upper triangle of the matrix. With reshape2::melt(), the correlation matrices L and M are each converted into a three-column data frame: the x and y axes of the correlation matrix make up the first two columns and the corresponding correlation coefficient makes up the third column. These become the new variables "points" and "labels", which can be mapped onto the size aesthetic for the points in the lower triangle and onto the label aesthetic for the text in the upper triangle, respectively. Their values will be the same, but their positions on the plot will be symmetrical about the diagonal! Merging L and M, you have everything you need.
+
+If you're not familiar with reshape2 - don't worry, the only reason we use that instead of tidyr is that reshape2::melt() can handle a matrix, whereas tidyr::gather() requires a data frame. At this point you just need to understand how to use the output from cor_list().
+
+You'll first use dplyr to execute this function on the continuous variables in the iris data frame (the first four columns), but separately for each species. Please refer to the course on dplyr if you are not familiar with these functions.
+
+Next, you'll actually plot the resulting data frame with ggplot2 functions.
+
+```{r}
+library(ggplot2)
+library(reshape2)
+
+cor_list <- function(x) {
+  L <- M <- cor(x)
+  
+  M[lower.tri(M, diag = TRUE)] <- NA
+  M <- melt(M)
+  names(M)[3] <- "points"
+  
+  L[upper.tri(L, diag = TRUE)] <- NA
+  L <- melt(L)
+  names(L)[3] <- "labels"
+  
+  merge(M, L)
+}
+
+# Calculate xx with cor_list
+library(dplyr)
+xx <- iris %>%
+  group_by(Species) %>%
+  do(cor_list(.[1:4])) 
+
+# Finish the plot
+ggplot(xx, aes(x = Var1, y = Var2)) +
+  geom_point(aes(col = points, size = abs(points)), shape = 16) +
+  geom_text(aes(col = labels,  size = abs(labels), label = round(labels, 2))) +
+  scale_size(range = c(0, 6)) +
+  scale_color_gradient2("r", limits = c(-1, 1)) +
+  scale_y_discrete("", limits = rev(levels(xx$Var1))) +
+  scale_x_discrete("") +
+  guides(size = FALSE) +
+  geom_abline(slope = -1, intercept = nlevels(xx$Var1) + 1) +
+  coord_fixed() +
+  facet_grid(. ~ Species) +
+  theme(axis.text.y = element_text(angle = 45, hjust = 1),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        strip.background = element_blank())
+```
+
+Proportional/stacked bar plots
+Before you head over to ternary plots, let's try to make a classical proportional/stacked bar plot of a subset of the data. We'll use a stacked bar plot and the coord_flip() function to flips the x and y axes.
+
+The data frame for the African Soil Profiles Database is available in your workspace as africa and can be found in the GSIF package. It contains three columns: Sand, Silt and Clay. A smaller version, containing only 50 observations is stored in africa_sample.
+
+In the first course we mentioned that in the data layer, the structure of the data should reflect how you wish to plot it. For a ternary plot, you need to have three separate variables, for example, Sand, Silt and Clay in africa. However, for a proportional/stacked bar plot, you just need two. The type should be defined as three levels within a single factor variable. That is, you want tidy data.
+
+It's also useful to maintain the site IDs as a variable within the data frame, currently, they are stored at row names, which is poor style and not useful.
+
+```{r}
+
+# Explore africa
+str(africa)
+africa_sample <- africa[sample(nrow(africa), 50), ]
+str(africa_sample)
+
+# Add an ID column from the row.names
+africa_sample$ID <- row.names(africa_sample)
+
+# Gather africa_sample
+library(tidyr)
+africa_sample_tidy <- gather(africa_sample, key, value, -ID)
+head(africa_sample_tidy)
+
+# Finish the ggplot command
+ggplot(africa_sample_tidy, aes(x = factor(ID), y = value, fill = key)) +
+  geom_col() +
+  coord_flip()
+```
+
+Producing ternary plots
+Ok, let's move onto ternary plots. For this you'll use the ggtern package, which provides the ggtern() function.
+
+In contrast to what you just saw in africa_small_tidy, the three soil properties, Sand, Silt and Clay, are not going to be located in a single variable. The distinction between wide and tidy format data was discussed in the first course and here you'll see it in action. Sometimes you need to rearrange your data for the desired plot type.
+
+Here, you'll use the complete dataset, africa, containing three separate variables for the measures of interest: that format is perfect for a ternary plot.
+
+```{r}
+# Load ggtern
+library(ggtern)
+
+# Build ternary plot
+ggtern(africa, aes(x = Sand, y = Silt, z = Clay)) +
+  geom_point(shape=16, alpha=0.2)
+```
+
+Adjusting ternary plots
+Ternary plots have been around for a while in R; you could achieve the same thing with the vcd package authored by Michael Friendly. If you just need a quick and dirty ternary plot, that may suit you just fine. However, since ggtern is built on ggplot2, you can take advantage of all the tools available therein.
+
+ggtern is authored by Nicholas Hamilton, more information can be found on his package website: www.ggtern.com.
+
+The plot from the previous exercise is available twice. Can you adapt it in different ways to make different ternary density plots?
+
+```{r}
+# ggtern and ggplot2 are loaded
+# Original plot:
+ggtern(africa, aes(x = Sand, y = Silt, z = Clay)) +
+  geom_point(shape = 16, alpha = 0.2)
+
+# Plot 1
+ggtern(africa, aes(x = Sand, y = Silt, z = Clay)) +
+  geom_density_tern()
+
+# Plot 2
+ggtern(africa, aes(x = Sand, y = Silt, z = Clay)) +
+  stat_density_tern(geom = "polygon", aes(fill = ..level.., alpha = ..level..)) +
+  guides(fill = FALSE)
+```
+
+Build the network (1)
+Network data may be stored in a variety of ways.
+
+For this example, you'll use an undirected network of romantic relationships in the TV show Mad Men: geomnet::madmen.
+
+```{r}
+# Load geomnet & examine structure of madmen
+library(geomnet)
+str(madmen)
+
+# Merge edges and vertices
+mmnet <- merge(madmen$edges, madmen$vertices,
+               by.x = "Name1", by.y = "label",
+               all = TRUE)
+
+# Examine structure of mmnet
+str(mmnet)
+```
+
+Build the network (2)
+Now that your data is in the correct format, you can build the actual network plot.
+
+You'll use the geom_net() function, a ggplot layer that's in the geomnet package. The ggnetwork package is a popular alternative, but we will not discuss that here.
+
+Can you finish the ggplot() command?
+
+```{r}
+# geomnet is pre-loaded
+
+# Merge edges and vertices
+mmnet <- merge(madmen$edges, madmen$vertices,
+               by.x = "Name1", by.y = "label",
+               all = TRUE)
+
+# Finish the ggplot command
+ggplot(data = mmnet, aes(from_id = Name1, to_id = Name2)) +
+  geom_net(aes(col=Gender), size=6, linewidth=1, labelon=TRUE, fontsize=3, labelcolour="black")
+```
+
+Adjusting the network
+Let's clean up the network a bit. As you can see, since this is in the ggplot2 framework, you can manually adjust the scales like you have always done.
+
+Here you're going to use another trick to remove all theme elements and make a clean network plot.
+
+```{r}
+# geomnet is pre-loaded
+library(ggmap)
+# Merge edges and vertices
+mmnet <- merge(madmen$edges, madmen$vertices,
+               by.x = "Name1", by.y = "label",
+               all = TRUE)
+
+# Tweak the network plot
+ggplot(data = mmnet, aes(from_id = Name1, to_id = Name2)) +
+  geom_net(aes(col = Gender),
+           size = 6,
+           linewidth = 1,
+           labelon = TRUE,
+           fontsize = 3,
+           labelcolour = "black",
+           directed = TRUE) +
+  scale_color_manual(values = c("#FF69B4", "#0099ff")) +
+  xlim(c(-0.05, 1.05)) +
+  ggmap::theme_nothing(legend = TRUE) +
+  theme(legend.key = element_blank())
+```
+
+Autoplot on linear models
+R has several plotting methods for specific objects. For example using plot() on the results of an lm() call results in four plots that give you insight into how well the assigned model fits the data.
+
+The ggfortify package is an all-purpose plot converter between base graphics and ggplot2 grid graphics.
+
+You'll explore exactly what we mean by graphics and grid in chapter 4. For now, just know that if you want to use the automatic output features in the context of ggplot2, they must first be converted to a ggplot object via ggfortify. This can be important at the superficial level, for consistency in appearance, but also at a deeper level, for later combining several plots in a single graphics device.
+
+```{r}
+# Create linear model: res
+res <- lm(Volume~Girth, data = trees)
+
+# Plot res
+plot(res)
+
+# Import ggfortify and use autoplot()
+library(ggfortify)
+autoplot(res, ncol=2)
+```
+
+ggfortify - time series
+Time series objects (class mts or ts) also have their own methods for plot(). ggfortify can also take advantage of this functionality.
+
+In the workspace, you'll find the variable Canada (it comes from the vars package): an mts class object with four series: prod is a measure of labour productivity, e is employment, U is the unemployment rate, and rw the real wage. They are each plotted as separate series by default.
+
+```{r}
+# ggfortify and Canada are available
+library(vars)
+# Inspect structure of Canada
+str(Canada)
+
+# Call plot() on Canada
+plot(Canada)
+
+# Call autoplot() on Canada
+autoplot(Canada)
+
+```
+
+Distance matrices and Multi-Dimensional Scaling (MDS)
+As you can probably imagine, distance matrices (class dist) contain the measured distance between all pair-wise combinations of many points. For example, the eurodist dataset contains the distances between major European cities. dist objects lend themselves well to autoplot().
+
+The cmdscale() function from the stats package performs Classical Multi-Dimensional Scaling and returns point coodinates as a matrix. Although autoplot() will work on this object, it will produce a heatmap, and not a scatter plot. However, if either eig = TRUE, add = TRUE or x.ret = TRUE is specified, cmdscale() will return a list instead of matrix. In these cases, the list method for autoplot() in the ggfortify package can deal with the output. Specifics on multi-dimensional scaling is beyond the scope of this course, however details on the method and these arguments can be found in the help pages ?cmdscale.
+
+```{r}
+# ggfortify and eurodist are available
+# Autoplot + ggplot2 tweaking
+autoplot(eurodist) + 
+  coord_fixed()
+
+# Autoplot of MDS
+autoplot(cmdscale(eurodist, eig = TRUE), 
+         label = TRUE, 
+         label.size = 3, 
+         size = 0)
+```
+
+Plotting K-means clustering
+ggfortify also supports stats::kmeans class objects. You must explicitly pass the original data to the autoplot function via the data argument, since kmeans objects don't contain the original data. The result will be automatically colored according to cluster.
+
+Here, you'll use the iris dataset and just look at K-means clustering, although this works on many clustering methods, including cluster::clara(), cluster::fanny(), cluster::pam() and stats::prcomp(). Unfortunately a discussion of these clustering methods is beyond the scope of this course.
+
+```{r}
+# Perform clustering
+iris_k <- kmeans(iris[-5], 3)
+
+# Autoplot: color according to cluster
+autoplot(iris_k, data = iris, frame = TRUE)
+
+# Autoplot: above, plus shape according to species
+autoplot(iris_k, data = iris, frame = TRUE, shape='Species')
+```
+
+Working with maps from the maps package: USA
+The easiest way to obtain map polygons is through the maps package. Unfortunately there are only a few locations available, but if your region of interest is included they are extremely convenient.
+
+The available maps of political boundaries are:
+
+Global: world, world2
+Country: france, italy, nz, usa
+USA: county, state
+The maps can be accessed via ggplot2::map_data(), which converts the map into a data frame containing the variables long and lat. To draw the map, you need to use geom_polygon() which will connect the points of latitude and longitude for you.
+
+```{r}
+library(maps)
+# maps, ggplot2, and ggmap are pre-loaded
+# Use map_data() to create usa and inspect
+usa <- map_data("usa")
+str(usa)
+
+# Build the map
+ggplot(usa, aes(x = long, y = lat, group = group)) +
+  geom_polygon() +
+  coord_map() +
+  theme_nothing()
+```
+
+The population pyramid
+Animations are particularly useful for temporal or geospatial data, and they are surprisingly easy to make! Here, you simply loop over the time variable in your dataset, composing a new plot for each subset in the data. These individual images are then cataloged in an animated GIF file.
+
+To show this you'll use a great animated population pyramid that was presented on the Revolutions blog. There are many more adjustments you could have made to the plot, but we'll just make a barebones version here.
+
+```{r}
+japan <- read.table("japanPOP.txt", header=TRUE)
+head(japan)
+```
+
+```{r}
+# Inspect structure of japan
+str(japan)
+library(animation)
+# Finish the code inside saveGIF
+saveGIF({
+
+  # Loop through all time points
+  for (i in unique(japan$time)) {
+
+    # Subset japan: data
+    data <- subset(japan, time == i)
+
+    # Finish the ggplot command
+    p <- ggplot(data, aes(x = AGE, y = POP, fill = SEX, width = 1)) +
+      coord_flip() +
+      geom_bar(data = data[data$SEX == "Female",], stat = "identity") +
+      geom_bar(data = data[data$SEX == "Male",], stat = "identity") +
+      ggtitle(i)
+
+    print(p)
+
+  }
+
+}, movie.name = "pyramid.gif", interval = 0.1)
+```
+
