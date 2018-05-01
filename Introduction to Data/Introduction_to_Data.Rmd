@@ -1,0 +1,201 @@
+---
+title: "Introduction to Data"
+output: html_notebook
+---
+Loading data into R
+In the video, you saw how to load the hsb2 dataset into R using the data() function and how to preview its contents with str().
+
+In this exercise, you'll practice on another dataset, mtcars. You will examine the structure of this dataset and determine the number of rows (observations) and columns (variables).
+
+```{r}
+data("mtcars")
+str(mtcars)
+```
+
+Identify variable types
+Recall from the video that the glimpse() function from dplyr provides a handy alternative to str() for previewing a dataset. In addition to telling you the number of observations and variables, it shows the name and type of each column, along with a neatly printed preview of its values.
+
+```{r}
+library(dplyr)
+glimpse(mtcars)
+```
+
+Filtering based on a factor
+Categorical data are often stored as factors in R. In this exercise, you'll get some practice working with a factor variable, number, from the email50 dataset. This variable tells you what type of number (none, small, or big) an email contains.
+
+Recall from the video that the filter() function from dplyr allows you to filter a dataset to create a subset containing only certain levels of a variable. For example, the following code filters the mtcars dataset for cars containing 6 cylinders:
+
+mtcars %>%
+  filter(cyl == 6)
+  
+```{r}
+mtcars_cyl <- mtcars %>%
+              filter(cyl == 6)
+glimpse(mtcars_cyl)
+```
+  
+Identify the type of study
+Next, let's take a look at data from a different study on country characteristics. You'll load the data first and view it, then you'll be asked to identify the type of study. Remember, an experiment requires random assignment.
+
+```{r}
+library(gapminder)
+data(gapminder)
+# Glimpse data
+glimpse(gapminder)
+
+# Identify type of study
+type_of_study <- "observational"
+```
+
+Number of males and females admitted
+In order to calculate the number of males and females admitted, we will introduce two new functions: count() from the dplyr package and spread() from the tidyr package.
+
+In one step, count() allows you to group the data by certain variables (in this case, admission status and gender) and then counts the number of observations in each category. These counts are available under a new variable called n.
+
+spread() simply reorganizes the output across columns based on a key-value pair, where a pair contains a key that explains what the information describes and a value that contains the actual information. spread() takes the name of the dataset as its first argument, the name of the key column as its second argument, and the name of the value column as its third argument, all specified without quotation marks.
+
+```{r}
+head(ucb_admit)
+```
+
+Number of males and females admitted
+In order to calculate the number of males and females admitted, we will introduce two new functions: count() from the dplyr package and spread() from the tidyr package.
+
+In one step, count() allows you to group the data by certain variables (in this case, admission status and gender) and then counts the number of observations in each category. These counts are available under a new variable called n.
+
+spread() simply reorganizes the output across columns based on a key-value pair, where a pair contains a key that explains what the information describes and a value that contains the actual information. spread() takes the name of the dataset as its first argument, the name of the key column as its second argument, and the name of the value column as its third argument, all specified without quotation marks.
+
+```{r}
+# Load packages
+library(tidyr)
+
+# Count number of male and female applicants admitted
+ucb_counts <- ucb_admit %>%
+  count(Gender, Admit)
+
+# View result
+ucb_counts
+  
+# Spread the output across columns
+ucb_counts %>%
+  spread(Admit, n)
+```
+
+Proportion of males admitted overall
+You can now calculate the percentage of males admitted. To do so, you will create a new variable with mutate() from the dplyr package.
+
+```{r}
+ucb_admit %>%
+  # Table of counts of admission status and gender
+  count(Gender, Admit) %>%
+  # Spread output across columns based on admission status
+  spread(Admit, n) %>%
+  # Create new variable
+  mutate(Perc_Admit = Admitted / (Admitted + Rejected))
+```
+
+Proportion of males admitted for each department
+Next you'll make a table similar to the one you constructed earlier, except you will first group the data by department. Then, you'll use this table to calculate the proportion of males admitted in each department.
+
+```{r}
+# Table of counts of admission status and gender for each department
+admit_by_dept <- ucb_admit %>%
+  count(Dept, Gender, Admit) %>%
+  spread(Admit, n)
+
+# View result
+admit_by_dept
+
+# Percentage of those admitted to each department
+admit_by_dept %>%
+  mutate(Perc_Admit = Admitted / (Admitted + Rejected))
+```
+
+Simple random sample in R
+Suppose you want to collect some data from a sample of eight states. A list of all states and the region they belong to (Northeast, Midwest, South, West) are given in the us_regions data frame.
+
+```{r}
+# Simple random sample: states_srs
+states_srs <- us_regions %>%
+  sample_n(8)
+
+# Count states by region
+states_srs %>%
+  group_by(region) %>%
+  count()
+```
+
+Stratified sample in R
+In the last exercise, you took a simple random sample of eight states. However, as you may have noticed when you counted the number of states selected from each region, this strategy is unlikely to select an equal number of states from each region. The goal of stratified sampling is to select an equal number of states from each region.
+
+```{r}
+# Stratified sample
+states_str <- us_regions %>%
+  group_by(region) %>%
+  sample_n(2)
+
+# Count states by region
+states_str %>%
+  group_by(region) %>%
+  count()
+```
+
+Inspect the data
+The purpose of this chapter is to give you an opportunity to apply and practice what you've learned on a real world dataset. For this reason, we'll provide a little less guidance than usual.
+
+The data from the study described in the video are available in your workspace as evals. Let's take a look!
+
+```{r}
+# Inspect evals
+glimpse(evals)
+```
+
+Identify variable types
+It's always useful to start your exploration of a dataset by identifying variable types. The results from this exercise will help you design appropriate visualizations and calculate useful summary statistics later in your analysis.
+
+```{r}
+# Inspect variable types
+glimpse(evals)
+str(evals) # Another option
+
+# Remove non-factor variables from this vector
+cat_vars <- c("rank", "ethnicity", "gender", "language",
+              "cls_level", "cls_profs", "cls_credits",
+              "pic_outfit", "pic_color") 
+```
+
+Recode a variable
+The cls_students variable in evals tells you the number of students in the class. Suppose instead of the exact number of students, you're interested in whether the class is
+
+"small" (18 students or fewer),
+"midsize" (19 - 59 students), or
+"large" (60 students or more).
+Since you'd like to have three distinct levels (instead of just two), you will need a nested call to ifelse(), which means that you'll call ifelse() a second time from within your first call to ifelse(). We've provided some scaffolding for you in the editor???see if you can figure it out!
+
+```{r}
+# Recode cls_students as cls_type: evals
+evals <- evals %>%
+  # Create new variable
+  mutate(cls_type = ifelse(cls_students < 19, "small", 
+                      ifelse(cls_students <60 & cls_students >18, "midsize", "large")))
+```
+
+Create a scatterplot
+The bty_avg variable shows the average beauty rating of the professor by the six students who were asked to rate the attractiveness of these faculty. The score variable shows the average professor evaluation score, with 1 being very unsatisfactory and 5 being excellent.
+
+```{r}
+# Scatterplot of score vs. bty_avg
+library(ggplot2)
+ggplot(evals, aes(x = bty_avg, y = score)) +
+  geom_point()
+```
+
+Create a scatterplot, with an added layer
+Suppose you are interested in evaluating how the relationship between a professor's attractiveness and their evaluation score varies across different class types (small, midsize, and large).
+
+```{r}
+# Scatterplot of score vs. bty_avg colored by cls_type
+ggplot(evals, aes(x = bty_avg, y = score, color=cls_type)) +
+  geom_point()
+```
+
